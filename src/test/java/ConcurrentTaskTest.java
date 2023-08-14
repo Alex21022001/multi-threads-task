@@ -1,3 +1,5 @@
+import com.alexsitiy.task.Debouncer;
+import com.alexsitiy.task.DebouncerImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -6,18 +8,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ConcurrentTaskTest {
+class ConcurrentTaskTest {
 
     private Debouncer<Runnable> db;
 
     @BeforeEach
     void init() {
-        DebouncerImpl debouncer = new DebouncerImpl();
-        DebouncerInvocationHandler debouncerInvocationHandler = new DebouncerInvocationHandler(debouncer);
-
-        db = (Debouncer<Runnable>) Proxy.newProxyInstance(ConcurrentTaskTest.class.getClassLoader(),
-                new Class[]{Debouncer.class},
-                debouncerInvocationHandler);
+        db = new DebouncerImpl();
     }
 
     @Test
@@ -26,6 +23,11 @@ public class ConcurrentTaskTest {
         AtomicInteger ry_count = new AtomicInteger();
 
         Runnable rx = () -> {
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             System.out.println("x");
             rx_count.incrementAndGet();
         };
