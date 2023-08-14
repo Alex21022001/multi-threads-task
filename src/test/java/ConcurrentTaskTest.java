@@ -23,11 +23,6 @@ class ConcurrentTaskTest {
         AtomicInteger ry_count = new AtomicInteger();
 
         Runnable rx = () -> {
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
             System.out.println("x");
             rx_count.incrementAndGet();
         };
@@ -36,27 +31,35 @@ class ConcurrentTaskTest {
             ry_count.incrementAndGet();
         };
 
+        db.call(rx);
+        db.call(ry);
+        Thread.sleep(50); //I've added this because if I run it, the main Thread will run XR and YR tasks but the main Thread will be faster and invoke assert.
+        assertEquals(1, rx_count.get());
+        assertEquals(1, ry_count.get());
+        Thread.sleep(950);// In order to wait so that XR and YR tasks' intervals finished.
+
         for (int i = 0; i < 8; i++) {
             Thread.sleep(50);
             db.call(rx);
             Thread.sleep(50);
             db.call(ry);
         }
+
         Thread.sleep(200); // expecting x and y
-        assertEquals(1, rx_count.get());
-        assertEquals(1, ry_count.get());
+        assertEquals(2, rx_count.get());
+        assertEquals(2, ry_count.get());
 
         for (int i = 0; i < 10000; i++) {
             db.call(rx);
         }
         Thread.sleep(2_400); // expecting only x
-        assertEquals(2, rx_count.get());
-        assertEquals(1, ry_count.get());
+        assertEquals(3, rx_count.get());
+        assertEquals(2, ry_count.get());
 
         db.call(ry);
         Thread.sleep(1_100); // expecting only y
-        assertEquals(2, rx_count.get());
-        assertEquals(2, ry_count.get());
+        assertEquals(3, rx_count.get());
+        assertEquals(3, ry_count.get());
         db.shutdown();
     }
 }
