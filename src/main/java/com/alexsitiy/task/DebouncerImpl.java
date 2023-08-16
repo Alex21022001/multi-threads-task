@@ -1,11 +1,14 @@
 package com.alexsitiy.task;
 
+import com.alexsitiy.util.TimeWaiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Set;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 
 public class DebouncerImpl implements Debouncer<Runnable> {
 
@@ -13,7 +16,11 @@ public class DebouncerImpl implements Debouncer<Runnable> {
 
     private final Set<Runnable> usedTask = ConcurrentHashMap.newKeySet();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
-    private static final Long ONE_SECOND_IN_MS = 1000L;
+    private final Long interval;
+
+    public DebouncerImpl(Long interval) {
+        this.interval = interval;
+    }
 
     @Override
     public void call(Runnable task) {
@@ -21,15 +28,15 @@ public class DebouncerImpl implements Debouncer<Runnable> {
 
             Runnable modifiedTask = () -> {
                 // Run the task immediately and measure its execution time. If it's bigger than 1S - doesn't wait, if not - wait the rest of the 1S.
-                long executionTime = runTaskWithMeasurement(task);
+                long start = System.currentTimeMillis();
+                task.run();
+                long finish = System.currentTimeMillis();
+                long executionTime = finish - start;
 
-                if (executionTime < ONE_SECOND_IN_MS) {
-                    try {
-                        Thread.sleep(ONE_SECOND_IN_MS - executionTime);
-                    } catch (InterruptedException e) {
-                        logger.warn("{} was interrupted during the Task interval",Thread.currentThread().getName());
-                        throw new RuntimeException(e);
-                    }
+                logger.debug("execution time is {}", executionTime);
+
+                if (executionTime < interval) {
+                    TimeWaiter.waitTime(interval - executionTime);
                 }
 
                 usedTask.remove(task);
@@ -46,15 +53,6 @@ public class DebouncerImpl implements Debouncer<Runnable> {
         executorService.shutdown();
     }
 
-    private long runTaskWithMeasurement(Runnable task) {
-        long start = System.currentTimeMillis();
-        task.run();
-        long finish = System.currentTimeMillis();
-        long newExecutionTime = finish - start;
-
-        logger.debug("execution time is {}", newExecutionTime);
-        return newExecutionTime;
-    }
 
 
 }
